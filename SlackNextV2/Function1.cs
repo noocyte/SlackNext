@@ -14,7 +14,7 @@ namespace SlackNextV2
 {
     public static class Function1
     {
-        [FunctionName("Function1")]
+        [FunctionName("Next-Farar-Meeting")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = "foo")] HttpRequest req,
              [Table("Next", Connection = "StorageConnectionAppSetting")] CloudTable myTable,
@@ -68,7 +68,16 @@ namespace SlackNextV2
                 
                 return new OkObjectResult(r);
             };
-
+            if (currentRows.Count() == 0) 
+            {
+               var resp = new Response
+                {
+                    text = $"Empty queue! Please queue some more meets - /next q Meeting-Responsible",
+                    response_type = "in_channel"
+                };
+                return new OkObjectResult(resp); 
+            }
+            
             MyPoco myPoco = currentRows.First();
             var resp = new Response
             {
