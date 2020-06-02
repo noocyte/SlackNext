@@ -23,11 +23,48 @@ namespace SlackNextV2
             log.LogInformation("C# HTTP trigger function processed a request.");
 
             string text = req.Form["text"];
-            var rowKey = DateTime.Now.ToString("yyyyMM");
-            string fullMonthName = DateTime.Now.ToString("MMMM", CultureInfo.CreateSpecificCulture("nb-no"));
+            var now = DateTime.Now;
+            var rowKey = now.ToString("yyyyMM");
+            string fullMonthName = GetFullMonthName(now);
             var currentRows = await FindFromThisMonth(myTable, rowKey);
 
-            // /next queue @jarle
+            // /next change 202006|06 jarle
+            if (text.StartsWith("change") || text.StartsWith("c"))
+            {
+                var args = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                rowKey = args[1];
+                var target = args[2];
+
+                if (rowKey.Length == 1)
+                {
+                    rowKey = "0" + rowKey;
+                }
+
+                if (rowKey.Length == 2)
+                {
+                    // assume this year
+                    rowKey = DateTime.Now.Year.ToString() + rowKey;
+                }
+
+                var targetDate = new DateTime(int.Parse(rowKey.Substring(0, 4)), Int32.Parse(rowKey.Substring(3, 2)), 1);
+                fullMonthName = GetFullMonthName(targetDate);
+                var nextInfo = new MyPoco
+                {
+                    PartitionKey = "next",
+                    RowKey = rowKey,
+                    MonthName = fullMonthName,
+                    Text = target
+                };
+                await myTable.ExecuteAsync(TableOperation.InsertOrReplace(nextInfo));
+                var r = new Response
+                {
+                    text = $"{nextInfo.Text} set as host for: {nextInfo.MonthName}",
+                    response_type = "in_channel"
+                };
+
+                return new OkObjectResult(r);
+            }
+
             if (text.StartsWith("queue") || text.StartsWith("q"))
             {
                 if (currentRows.Any())
@@ -65,19 +102,19 @@ namespace SlackNextV2
                     text = $"{nextInfo.Text} added as next, month: {nextInfo.MonthName}",
                     response_type = "in_channel"
                 };
-                
+
                 return new OkObjectResult(r);
             };
-            if (currentRows.Count() == 0) 
+            if (currentRows.Count() == 0)
             {
-               var resp = new Response
+                var r = new Response
                 {
                     text = $"Empty queue! Please queue some more meets - /next q Meeting-Responsible",
                     response_type = "in_channel"
                 };
-                return new OkObjectResult(resp); 
+                return new OkObjectResult(r);
             }
-            
+
             MyPoco myPoco = currentRows.First();
             var resp = new Response
             {
@@ -85,6 +122,11 @@ namespace SlackNextV2
                 response_type = "in_channel"
             };
             return new OkObjectResult(resp);
+        }
+
+        private static string GetFullMonthName(DateTime now)
+        {
+            return now.ToString("MMMM", CultureInfo.CreateSpecificCulture("nb-no"));
         }
 
         private static async Task<List<MyPoco>> FindFromThisMonth(CloudTable cloudTable, string currentMonth)
