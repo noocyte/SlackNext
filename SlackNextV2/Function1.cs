@@ -46,8 +46,7 @@ namespace SlackNextV2
                     rowKey = DateTime.Now.Year.ToString() + rowKey;
                 }
 
-                var targetDate = new DateTime(int.Parse(rowKey.Substring(0, 4)), Int32.Parse(rowKey.Substring(3, 2)), 1);
-                fullMonthName = GetFullMonthName(targetDate);
+                fullMonthName = GetFullMonth(rowKey);
                 var nextInfo = new MyPoco
                 {
                     PartitionKey = "next",
@@ -122,6 +121,16 @@ namespace SlackNextV2
                 response_type = "in_channel"
             };
             return new OkObjectResult(resp);
+        }
+
+        private static string GetFullMonth(string rowKey)
+        {
+            var year = int.Parse(rowKey.Substring(0, 4));
+            var monthString = rowKey.Substring(4, 2);
+            if (monthString.StartsWith("0")) monthString = monthString.Substring(1, 1);
+            var month = int.Parse(monthString);
+            var targetDate = new DateTime(year, month, 1);
+            return GetFullMonthName(targetDate);
         }
 
         private static string GetFullMonthName(DateTime now)
